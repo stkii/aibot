@@ -28,15 +28,22 @@ FROM python:3.12-slim AS runtime
 
 WORKDIR /app
 
-# Copy the virtual environment from the builder stage
+## Install runtime dependencies for voice (libopus)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libopus0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user for security (before COPY with --chown)
+RUN groupadd --gid 1000 app \
+    && useradd --uid 1000 --gid 1000 --create-home app
+
+# Prepare log directory and set ownership
+RUN mkdir -p /app/logs \
+    && chown -R app:app /app
+
+# Copy the virtual environment and source from the builder stage
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
-
-# Copy the application source code
-COPY --from=builder /app/src /app/src
-
-# Create non-root user for security
-RUN groupadd --gid 1000 app && \
-    useradd --uid 1000 --gid 1000 --create-home app
+COPY --from=builder --chown=app:app /app/src /app/src
 
 USER app
 
