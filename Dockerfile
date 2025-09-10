@@ -1,51 +1,40 @@
-# --- Builder Stage ---
-# This stage installs dependencies and builds the application.
-FROM python:3.12-slim AS builder
-
-# Install uv from the latest distroless image
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# Use a Python image with uv pre-installed
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 WORKDIR /app
 
-# Copy dependency definitions first for better layer caching
-COPY pyproject.toml uv.lock ./
-
-# Install dependencies only (without the project itself) for optimal layer caching
-# This layer will be cached unless dependencies change
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-install-project --no-editable --compile-bytecode
-
-# Copy the application source code
-ADD . /app
-
-# Install the project itself
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-editable --compile-bytecode
-
-# --- Runtime Stage ---
-# This stage creates the final, lean image.
-FROM python:3.12-slim AS runtime
-
-WORKDIR /app
-
-## Install runtime dependencies for voice (libopus)
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends libopus0 \
+# Install system dependencies including libopus and ffmpeg for Discord voice support
+RUN apt-get update && apt-get install -y \
+    libopus-dev \
+    libopus0 \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user for security (before COPY with --chown)
-RUN groupadd --gid 1000 app \
-    && useradd --uid 1000 --gid 1000 --create-home app
+# Enable bytecode compilation
+ENV UV_COMPILE_BYTECODE=1
 
-# Prepare log directory and set ownership
-RUN mkdir -p /app/logs \
-    && chown -R app:app /app
+# Copy from the cache instead of linking since it's a mounted volume
+ENV UV_LINK_MODE=copy
 
-# Copy the virtual environment and source from the builder stage
-COPY --from=builder --chown=app:app /app/.venv /app/.venv
-COPY --from=builder --chown=app:app /app/src /app/src
+# Ensure installed tools can be executed out of the box
+ENV UV_TOOL_BIN_DIR=/usr/local/bin
 
-USER app
+# Install the project's dependencies using the lockfile and settings
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --locked --no-install-project --no-dev
 
-# Command to run the application using the virtual environment's Python
-CMD ["/app/.venv/bin/python", "-m", "src.aibot"]
+# Then, add the rest of the project source code and install it
+# Installing separately from its dependencies allows optimal layer caching
+COPY . /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev
+
+# Place executables in the environment at the front of the path
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Reset the entrypoint, don't invoke `uv`
+ENTRYPOINT []
+
+CMD ["uv", "run", "python", "-m", "src.aibot"]

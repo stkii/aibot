@@ -1,0 +1,28 @@
+# Version control
+.git
+.gitignore
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.venv/
+
+# Local artifacts and caches
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+
+# Local runtime data
+aibot.db
+logs/
+
+# Secrets (use --env-file at runtime)
+.env
+.env.*
+
+# IDE/editor
+.idea/
+.vscode/

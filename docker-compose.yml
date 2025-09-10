@@ -1,0 +1,34 @@
+services:
+  voicevox:
+    image: voicevox/voicevox_engine:cpu-latest
+    container_name: voicevox-engine
+    ports:
+      - "50021:50021"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:50021/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  aibot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aibot
+    depends_on:
+      voicevox:
+        condition: service_healthy
+    environment:
+      - VOICEVOX_HOST=voicevox
+      - VOICEVOX_PORT=50021
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      - ./resources:/app/resources:ro
+
+networks:
+  default:
+    name: aibot-network
