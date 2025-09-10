@@ -74,12 +74,14 @@ pip install -r requirements.lock
 
 `.env` と `resources/instructions.yml` の内容が**正しいことを確認**してから、botを起動してください。
 
+読み上げ機能を利用する場合は、VOICEVOXエンジンを事前に起動する必要があります:
+
 ```bash
-# VOICEVOXエンジンの起動
+# VOICEVOXエンジンの起動（読み上げ機能使用時のみ）
 docker pull voicevox/voicevox_engine:cpu-latest
 docker run --rm -p '127.0.0.1:50021:50021' voicevox/voicevox_engine:cpu-latest
 
-# Botの起動
+# 別のターミナルでBotの起動
 python -m src.aibot --log <log_level>
 ```
 
@@ -91,18 +93,28 @@ python -m src.aibot --log <log_level>
 
 事前に、**Docker**がインストール済みであること、`.env` に適切な値が入力されていることを確認してください。
 
-読み上げ機能を利用するには、VOICEVOXエンジンを事前に起動する必要があります。
+```bash
+# サービスの起動（初回はイメージのビルドとダウンロードが実行されます）
+docker-compose up -d
+
+# ログの確認
+docker-compose logs -f
+
+# サービスの停止
+docker-compose down
+```
+
+### 個別サービスの操作
 
 ```bash
-# VOICEVOXエンジンの起動
-docker pull voicevox/voicevox_engine:cpu-latest
-docker run --rm -p '127.0.0.1:50021:50021' voicevox/voicevox_engine:cpu-latest
+# VOICEVOXエンジンのみ起動
+docker-compose up -d voicevox
 
-# AIBotイメージのBuild
-docker build -t aibot:latest .
+# AIBotのみ再起動
+docker-compose restart aibot
 
-# Botの起動
-docker run -d --name aibot --env-file .env aibot:latest
+# AIBotのログのみ確認
+docker-compose logs -f aibot
 ```
 
 ## VOICEVOX利用について
