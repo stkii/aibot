@@ -1,4 +1,5 @@
 import asyncio
+import os
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -16,7 +17,10 @@ class TTSService:
     """Service for TTS."""
 
     def __init__(self) -> None:
-        self.voicevox = VoiceVoxTTS()
+        voicevox_host = os.getenv("VOICEVOX_HOST", "127.0.0.1")
+        voicevox_port = os.getenv("VOICEVOX_PORT", "50021")
+        voicevox_url = f"http://{voicevox_host}:{voicevox_port}"
+        self.voicevox = VoiceVoxTTS(server_url=voicevox_url)
         self.play_queues: dict[int, asyncio.Queue] = {}  # guild_id -> メッセージキュー
         self.playing: dict[int, bool] = {}  # guild_id -> 再生中フラグ
 

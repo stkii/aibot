@@ -76,7 +76,7 @@ async def on_voice_state_update(
         if not session:
             return
         # このハンドラを発火させたチャンネルがセッション対象かどうか確認
-        voice_channel = client.get_channel(int(session.voice_channel_id))
+        voice_channel = client.get_channel(int(session["voice_channel_id"]))
         if not voice_channel or before.channel.id != voice_channel.id:
             return
 
