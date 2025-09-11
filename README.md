@@ -68,7 +68,7 @@ pip install -r requirements.lock
 
 #### 3. システム指示の設定
 
-`resources/sample.yml` はシステム指示の一例です。`resources/instructions.yml` を作成し、システム指示を記述してください。
+[resources/](https://github.com/stkii/aibot/tree/main/resources) に移動して、システム指示を定義してください。必要に応じて、使用するLLMモデルや、読み上げ話者をカスタマイズすることもできます。詳細は、当該ディレクトリの `README.md` を参照してください。
 
 #### 4. VOICEVOXエンジンとBOTの起動
 
@@ -92,6 +92,8 @@ python -m src.aibot --log <log_level>
 ## Docker
 
 事前に、**Docker**がインストール済みであること、`.env` に適切な値が入力されていることを確認してください。
+
+[resources/](https://github.com/stkii/aibot/tree/main/resources) に移動して、システム指示を定義してください。必要に応じて、使用するLLMモデルや、読み上げ話者をカスタマイズすることもできます。詳細は、当該ディレクトリの `README.md` を参照してください。
 
 ```bash
 # サービスの起動（初回はイメージのビルドとダウンロードが実行されます）
