@@ -63,7 +63,7 @@ pip install -r requirements.lock
 #### 2. 環境設定ファイルの準備
 
 設定に `.env` ファイルを使用します。以下の手順に従ってください：
-* `.env.sample` のコピーを作成し、`.env` に改名
+* `.env.sample` のコピーを作成し、`.env` に名前を変更
 * `.env` に実際の値を入力
 
 #### 3. システム指示の設定
@@ -71,8 +71,6 @@ pip install -r requirements.lock
 [resources/](https://github.com/stkii/aibot/tree/main/resources) に移動して、システム指示を定義してください。必要に応じて、使用するLLMモデルや、読み上げ話者をカスタマイズすることもできます。詳細は、当該ディレクトリの `README.md` を参照してください。
 
 #### 4. VOICEVOXエンジンとBOTの起動
-
-`.env` と `resources/instructions.yml` の内容が**正しいことを確認**してから、botを起動してください。
 
 読み上げ機能を利用する場合は、VOICEVOXエンジンを事前に起動する必要があります:
 
@@ -90,8 +88,6 @@ python -m src.aibot --log <log_level>
 > 指定しない場合、デフォルトで `INFO` が使用されます。
 
 ## Docker
-
-事前に、**Docker**がインストール済みであること、`.env` に適切な値が入力されていることを確認してください。
 
 [resources/](https://github.com/stkii/aibot/tree/main/resources) に移動して、システム指示を定義してください。必要に応じて、使用するLLMモデルや、読み上げ話者をカスタマイズすることもできます。詳細は、当該ディレクトリの `README.md` を参照してください。
 

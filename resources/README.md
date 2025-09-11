@@ -5,7 +5,13 @@
 ## システム指示設定
 
 > [!IMPORTANT]
-> AIBotを使用する前に、必ず `./instructions/instruction.yml` を作成してシステム指示を設定してください。
+> AIBotを使用する前に、必ず `./instructions/instructions.yml` を作成してシステム指示を設定してください。
+
+```bash
+cd ./instructions/
+
+touch instructions.yml
+```
 
 システム指示は、YAMLファイル内で各スラッシュコマンド（`chat:`、`fixme:`など）ごとに独立した指示を定義します。そのため、キャラクターの性格や口調、振る舞いなど、コマンドの種類に関わらず**共通して**設定したい内容は、各コマンドごとに**重複して**記述してください。
 
