@@ -5,6 +5,7 @@ from src.aibot.logger import logger
 intents = Intents.default()
 intents.message_content = True
 intents.members = True
+intents.voice_states = True
 
 
 class BotClient(Client):

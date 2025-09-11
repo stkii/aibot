@@ -43,9 +43,9 @@ This is a Discord AI bot built with discord.py that integrates multiple LLM prov
 src/aibot/
 ├── discord/           # Discord-specific layer
 │   ├── client.py      # Singleton bot client
-│   ├── command/       # Slash commands (/chat, /create, /provider, etc.)
+│   ├── command/       # Slash commands
 │   └── decorator/     # Access control and usage decorators
-├── service/           # Business logic layer  
+├── service/           # Business logic layer
 ├── infrastructure/    # Data access layer
 │   ├── api/          # LLM provider integrations
 │   └── dao/          # Database operations
@@ -95,7 +95,7 @@ src/aibot/
 ### Multi-Provider LLM Support
 The bot supports three LLM providers with automatic failover and consistent parameter handling:
 - Anthropic Claude (default)
-- Google Gemini  
+- Google Gemini
 - OpenAI GPT
 
 Model selection is admin-controlled via `/provider` command, with configurations stored in `llm-models.json`.
