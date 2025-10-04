@@ -11,6 +11,7 @@ load_dotenv()
 from src.aibot.discord.client import BotClient  # noqa: E402
 from src.aibot.discord.command import *  # noqa: E402, F403
 from src.aibot.discord.event import *  # noqa: E402, F403
+from src.aibot.infrastructure.dao.agent import AgentDAO  # noqa: E402
 from src.aibot.infrastructure.dao.connection import ConnectionDAO  # noqa: E402
 from src.aibot.infrastructure.dao.instruction import InstructionDAO  # noqa: E402
 from src.aibot.infrastructure.dao.tts import TTSSessionDAO  # noqa: E402
@@ -21,6 +22,7 @@ from src.aibot.service.scheduler import TaskScheduler  # noqa: E402
 
 async def main() -> None:  # noqa: D103
     # Create database tables
+    await AgentDAO().create_table()
     await ConnectionDAO().create_table()
     await InstructionDAO().create_table()
     await TTSSessionDAO().create_table()
