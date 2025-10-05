@@ -6,7 +6,7 @@ import aiosqlite
 from ._base import DAOBase
 
 
-class TTSSession(TypedDict):  # noqa: D101
+class TTSSession(TypedDict):
     guild_id: str
     text_channel_id: str
     voice_channel_id: str

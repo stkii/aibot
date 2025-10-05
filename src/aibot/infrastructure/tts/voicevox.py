@@ -8,7 +8,7 @@ from src.aibot.logger import logger
 from ._base import TTSBase
 
 
-class VoiceVoxTTS(TTSBase):  # noqa: D101
+class VoiceVoxTTS(TTSBase):
     def __init__(
         self,
         server_url: str = "http://127.0.0.1:50021",

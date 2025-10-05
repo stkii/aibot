@@ -30,6 +30,8 @@ ignore = [
     "D103",   # Allow missing docstring in public function
     "D104",   # Allow missing docstring in public package
     "D107",   # Allow missing docstring in `__init__`
+    "D203",   # Ignore: incompatible with D211 (no-blank-line-before-class)
+    "D213",   # Ignore: incompatible with D212 (multi-line-summary-first-line)
     "D401",   # Allow first line of docstring not to be in imperative mood
     "BLE001", # Allow catching blind exception
 ]
