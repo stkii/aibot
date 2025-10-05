@@ -51,7 +51,8 @@ def get_all_agents() -> list[Agent]:
             name=agent_key,
             instructions=instruction,
             model=agent_data.get("model"),
-            tools=agent_data.get("tools", []) or None,
+            # Ensure tools is always a list as required by agents.Agent
+            tools=agent_data.get("tools") or [],
         )
         agents.append(agent)
 

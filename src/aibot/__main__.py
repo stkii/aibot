@@ -20,7 +20,7 @@ from src.aibot.logger import logger  # noqa: E402
 from src.aibot.service.scheduler import TaskScheduler  # noqa: E402
 
 
-async def main() -> None:  # noqa: D103
+async def main() -> None:
     # Create database tables
     await AgentDAO().create_table()
     await ConnectionDAO().create_table()
