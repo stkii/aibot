@@ -7,8 +7,6 @@ from agents import Agent
 
 from src.aibot.logger import logger
 
-from .instruction import InstructionService
-
 
 def _load_agents_config() -> dict:
     """Load resources/agents.yml configuration."""
@@ -41,11 +39,6 @@ def get_all_agents() -> list[Agent]:
     agents = []
     for agent_key, agent_data in agents_config.items():
         instruction = agent_data.get("instruction")
-
-        # For backward compatibility
-        if not instruction:
-            instruction_service = InstructionService.get_instance()
-            instruction = instruction_service.load_static_instruction("default")
 
         agent = Agent(
             name=agent_key,
