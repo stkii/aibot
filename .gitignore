@@ -1,6 +1,9 @@
 # Database
 *.db
 
+# Docs
+docs/llms-txt/
+
 # Environment
 .env
 
@@ -13,10 +16,6 @@
 
 # Python-generated files
 __pycache__/
-
-# Resources
-resources/instructions/gen/
-resources/instructions/instructions.yml
 
 # Virtual environments
 .venv/

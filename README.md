@@ -14,9 +14,9 @@
 * Python 3.12
   * uvの利用を推奨しています。詳細は[uv公式サイト](https://docs.astral.sh/uv/)を参照してください
 * Dockerのインストール
-* APIキーの取得 (Anthropic、Google、OpenAIからひとつ以上)
+* OpenAI APIキーの取得
 
-### Discordアプリケーションの作成と招待
+### Botの作成と招待
 
 1. [Discord Developer Portal](https://discord.com/developers/bots)にアクセスし、新しいDiscordアプリケーションを作成してください。
 
@@ -45,7 +45,7 @@
 
 ### BOTの起動
 
-#### 1. リポジトリのクローンと依存関係のインストール
+#### 1. インストール
 
 ```bash
 # 1) リポジトリのクローン
@@ -60,15 +60,15 @@ uv sync
 pip install -r requirements.lock
 ```
 
-#### 2. 環境設定ファイルの準備
+#### 2. 設定ファイル
 
 設定に `.env` ファイルを使用します。以下の手順に従ってください：
 * `.env.sample` のコピーを作成し、`.env` に名前を変更
 * `.env` に実際の値を入力
 
-#### 3. システム指示の設定
+#### 3. Agentsの設定
 
-[resources/](https://github.com/stkii/aibot/tree/main/resources) に移動して、システム指示を定義してください。必要に応じて、使用するLLMモデルや、読み上げ話者をカスタマイズすることもできます。詳細は、当該ディレクトリの `README.md` を参照してください。
+[resources/](https://github.com/stkii/aibot/tree/main/resources) に移動して、Agentsを定義してください。必要に応じて、読み上げ話者をカスタマイズすることもできます。詳細は、当該ディレクトリの `README.md` を参照してください。
 
 #### 4. VOICEVOXエンジンとBOTの起動
 
