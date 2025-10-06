@@ -70,7 +70,7 @@ pip install -r requirements.lock
 
 [resources/](https://github.com/stkii/aibot/tree/main/resources) に移動して、Agentsを定義してください。必要に応じて、読み上げ話者をカスタマイズすることもできます。詳細は、当該ディレクトリの `README.md` を参照してください。
 
-#### 4. VOICEVOXエンジンとBOTの起動
+#### 4. BOTの起動
 
 読み上げ機能を利用する場合は、VOICEVOXエンジンを事前に起動する必要があります:
 
