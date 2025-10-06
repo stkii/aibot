@@ -25,8 +25,13 @@ select = [ "ALL" ]
 # Ignore specific linting rules.
 ignore = [
     "D100",   # Allow missing docstring in public module
+    "D101",   # Allow missing docstring in public class
+    "D102",   # Allow missing docstring in public method
+    "D103",   # Allow missing docstring in public function
     "D104",   # Allow missing docstring in public package
     "D107",   # Allow missing docstring in `__init__`
+    "D203",   # Ignore: incompatible with D211 (no-blank-line-before-class)
+    "D213",   # Ignore: incompatible with D212 (multi-line-summary-first-line)
     "D401",   # Allow first line of docstring not to be in imperative mood
     "BLE001", # Allow catching blind exception
 ]
