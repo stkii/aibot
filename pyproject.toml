@@ -1,6 +1,6 @@
 [project]
 name = "aibot"
-version = "0.1.0-alpha"
+version = "0.1.0"
 description = " AI-powered Discord bot."
 readme = "README.md"
 requires-python = ">=3.12, <3.13"
@@ -21,6 +21,7 @@ dependencies = [
 dev = [
     "mypy>=1.17.1",
     "ruff>=0.12.11",
+    "ty>=0.0.19",
     "types-pytz>=2025.2.0.20250809",
     "types-pyyaml>=6.0.12.20250822",
     "types-requests>=2.32.4.20250809",
