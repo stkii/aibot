@@ -278,10 +278,22 @@ async def join_command(interaction: Interaction) -> None:
         )
         return
 
+    voice_channel = member.voice.channel
+    existing_voice_client = guild.voice_client
+    if (
+        existing_voice_client
+        and isinstance(existing_voice_client, VoiceClient)
+        and existing_voice_client.is_connected()
+    ):
+        await interaction.response.send_message(
+            "すでにボイスチャンネルに接続しています。先に `/leave` を実行してください。",
+            ephemeral=True,
+        )
+        return
+
     await interaction.response.defer()
 
     try:
-        voice_channel = member.voice.channel
         await voice_channel.connect()
     except Exception as e:
         msg = f"Error in join command: {e!s}"
@@ -429,6 +441,14 @@ async def read_command(interaction: Interaction) -> None:
     await interaction.response.defer()
 
     try:
+        session = await tts_session_dao.get_active_tts_session(str(guild.id))
+        if session is None:
+            await interaction.followup.send(
+                "アクティブな読み上げセッションがありません。先に `/join` を実行してください。",
+                ephemeral=True,
+            )
+            return
+
         # Toggle reading status
         new_status = await tts_session_dao.toggle_reading(
             str(guild.id),
@@ -441,8 +461,7 @@ async def read_command(interaction: Interaction) -> None:
             )
         else:
             await interaction.followup.send(
-                "読み上げを開始できませんでした",
-                ephemeral=True,
+                "読み上げを停止しました",
             )
 
     except Exception as e:
