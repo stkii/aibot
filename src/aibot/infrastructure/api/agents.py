@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from agents import Agent, Runner
+from typing import Any
+
+from agents import Agent, Handoff, Runner
 
 from src.aibot.service.agents import get_all_agents
 
@@ -30,13 +32,15 @@ async def generate_agents_response(user_msg: str) -> dict:
         }
 
     # Build a triage agent that can handoff to all configured agents
+    triage_handoffs: list[Agent[Any] | Handoff[Any, Any]] = [*agents]
+
     triage_agent = Agent(
         name="triage",
         instructions=(
             "Handoff to the most appropriate sub-agent based on the user's "
             "language, intent, and request content."
         ),
-        handoffs=agents,
+        handoffs=triage_handoffs,
     )
 
     result = await Runner.run(triage_agent, input=user_msg)

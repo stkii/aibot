@@ -46,7 +46,7 @@ async def on_message(message: DiscordMessage) -> None:
 
     # Queue the message for TTS
     tts_message = message.content
-    settings = _get_guild_speaker_settings(guild_id)
+    settings = await _get_guild_speaker_settings(guild_id)
     await tts_service.queue_message(
         tts_message,
         settings["speaker"],

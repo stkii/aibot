@@ -1,7 +1,7 @@
 import os
 from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import Any, TypeVar, cast
+from typing import Any, TypeVar
 
 from discord import Interaction, app_commands
 
@@ -32,7 +32,7 @@ def has_daily_usage_left() -> Callable[[T], T]:
         current_usage = await dao.get_user_daily_usage(interaction.user.id)
         user_limit = await dao.get_daily_usage_limit(interaction.user.id)
 
-        return cast("bool", current_usage < user_limit)
+        return current_usage < user_limit
 
     return app_commands.check(predicate)
 

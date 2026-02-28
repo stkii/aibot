@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from discord import Interaction, SelectOption, VoiceClient
+from discord import Interaction, Member, SelectOption, VoiceClient
 from discord.ui import Select, View
 
 from src.aibot.discord.client import BotClient
@@ -13,7 +13,7 @@ from src.aibot.service.tts import TTSService
 client = BotClient.get_instance()
 connection_dao = ConnectionDAO()
 tts_session_dao = TTSSessionDAO()
-tts_service = TTSService()
+tts_service = TTSService.get_instance()
 
 
 # Load speakers configuration
@@ -67,7 +67,7 @@ def _get_default_speaker_settings() -> dict[str, str]:
     return {"speaker": first_speaker, "style": first_style}
 
 
-def _get_guild_speaker_settings(guild_id: int) -> dict[str, str]:
+async def _get_guild_speaker_settings(guild_id: int) -> dict[str, str]:
     """Get speaker settings for a guild.
 
     Parameters
@@ -81,11 +81,13 @@ def _get_guild_speaker_settings(guild_id: int) -> dict[str, str]:
         Speaker and style settings for the guild
 
     """
-    return guild_speaker_settings.get(guild_id, _get_default_speaker_settings())
-
-
-# Guild speaker settings storage
-guild_speaker_settings: dict[int, dict[str, str]] = {}
+    settings = await tts_session_dao.get_speaker_settings(str(guild_id))
+    if not settings:
+        return _get_default_speaker_settings()
+    return {
+        "speaker": settings["speaker"],
+        "style": settings["style"],
+    }
 
 
 class SpeakerSelector(Select):
@@ -205,12 +207,19 @@ class SpeakerSelector(Select):
             else:  # style
                 # Style selected, save settings and complete
                 selected_style = self.values[0]
+                if self.selected_speaker is None:
+                    await interaction.edit_original_response(
+                        content="話者設定の保存に失敗しました",
+                        view=None,
+                    )
+                    return
 
                 # Save guild settings
-                guild_speaker_settings[self.guild_id] = {
-                    "speaker": self.selected_speaker,
-                    "style": selected_style,
-                }
+                await tts_session_dao.upsert_speaker_settings(
+                    str(self.guild_id),
+                    self.selected_speaker,
+                    selected_style,
+                )
 
                 await interaction.edit_original_response(
                     content=f"話者設定を更新しました!\n"
@@ -244,7 +253,25 @@ async def join_command(interaction: Interaction) -> None:
         Discord interaction object
 
     """
-    if not interaction.user.voice or not interaction.user.voice.channel:
+    if interaction.guild is None or not isinstance(interaction.user, Member):
+        await interaction.response.send_message(
+            "このコマンドはサーバー内でのみ使用できます。",
+            ephemeral=True,
+        )
+        return
+
+    guild = interaction.guild
+    member = interaction.user
+    channel_id = interaction.channel_id
+
+    if channel_id is None:
+        await interaction.response.send_message(
+            "チャンネル情報の取得に失敗しました。",
+            ephemeral=True,
+        )
+        return
+
+    if not member.voice or not member.voice.channel:
         await interaction.response.send_message(
             "このコマンドはボイスチャンネルに接続しているユーザーのみ使用できます。",
             ephemeral=True,
@@ -254,9 +281,8 @@ async def join_command(interaction: Interaction) -> None:
     await interaction.response.defer()
 
     try:
-        voice_channel = interaction.user.voice.channel
+        voice_channel = member.voice.channel
         await voice_channel.connect()
-        await interaction.followup.send("接続しました!")
     except Exception as e:
         msg = f"Error in join command: {e!s}"
         logger.exception(msg)
@@ -269,25 +295,31 @@ async def join_command(interaction: Interaction) -> None:
     try:
         await connection_dao.log_connect(
             str(voice_channel.id),
-            str(interaction.guild.id),
+            str(guild.id),
         )
         await tts_session_dao.create_tts_session(
-            str(interaction.guild.id),
-            str(interaction.channel.id),
+            str(guild.id),
+            str(channel_id),
             str(voice_channel.id),
         )
 
         tts_start_message = "接続しました"
-        settings = _get_guild_speaker_settings(interaction.guild.id)
+        settings = await _get_guild_speaker_settings(guild.id)
         await tts_service.queue_message(
             tts_start_message,
             settings["speaker"],
-            interaction.guild.id,
+            guild.id,
             settings["style"],
         )
+        await interaction.followup.send("接続しました!")
     except Exception as e:
         msg = f"Error in join command: {e!s}"
         logger.exception(msg)
+        voice_client = guild.voice_client
+        if voice_client and isinstance(voice_client, VoiceClient) and voice_client.is_connected():
+            await voice_client.disconnect()
+        await tts_session_dao.end_tts_session(str(guild.id))
+        await tts_service.stop_guild(guild.id)
         await interaction.followup.send(
             "TTSを開始できませんでした",
             ephemeral=True,
@@ -304,7 +336,17 @@ async def leave_command(interaction: Interaction) -> None:
         Discord interaction object
 
     """
-    if not interaction.user.voice or not interaction.user.voice.channel:
+    if interaction.guild is None or not isinstance(interaction.user, Member):
+        await interaction.response.send_message(
+            "このコマンドはサーバー内でのみ使用できます。",
+            ephemeral=True,
+        )
+        return
+
+    guild = interaction.guild
+    member = interaction.user
+
+    if not member.voice or not member.voice.channel:
         await interaction.response.send_message(
             "このコマンドはボイスチャンネルに接続しているユーザーのみ使用できます。",
             ephemeral=True,
@@ -314,12 +356,12 @@ async def leave_command(interaction: Interaction) -> None:
     await interaction.response.defer()
 
     try:
-        voice_client = interaction.guild.voice_client
+        voice_client = guild.voice_client
         # VoiceClient is a subclass of VoiceProtocol
         if voice_client and isinstance(voice_client, VoiceClient) and voice_client.is_connected():
             await voice_client.disconnect()
-            await tts_session_dao.end_tts_session(str(interaction.guild.id))
-            tts_service.clear_queue(interaction.guild.id)
+            await tts_session_dao.end_tts_session(str(guild.id))
+            await tts_service.stop_guild(guild.id)
             await interaction.followup.send("ボイスチャンネルから切断しました", ephemeral=True)
         else:
             await interaction.followup.send(
@@ -345,8 +387,26 @@ async def read_command(interaction: Interaction) -> None:
         Discord interaction object
 
     """
+    if interaction.guild is None or not isinstance(interaction.user, Member):
+        await interaction.response.send_message(
+            "このコマンドはサーバー内でのみ使用できます。",
+            ephemeral=True,
+        )
+        return
+
+    guild = interaction.guild
+    member = interaction.user
+    channel_id = interaction.channel_id
+
+    if channel_id is None:
+        await interaction.response.send_message(
+            "チャンネル情報の取得に失敗しました。",
+            ephemeral=True,
+        )
+        return
+
     # Check if user is in a voice channel
-    if not interaction.user.voice or not interaction.user.voice.channel:
+    if not member.voice or not member.voice.channel:
         await interaction.response.send_message(
             "このコマンドはボイスチャンネルに接続しているユーザーのみ使用できます。",
             ephemeral=True,
@@ -354,7 +414,7 @@ async def read_command(interaction: Interaction) -> None:
         return
 
     # Check if bot is connected to voice channel in this guild
-    voice_client = interaction.guild.voice_client
+    voice_client = guild.voice_client
     if (
         not voice_client
         or not isinstance(voice_client, VoiceClient)
@@ -371,8 +431,8 @@ async def read_command(interaction: Interaction) -> None:
     try:
         # Toggle reading status
         new_status = await tts_session_dao.toggle_reading(
-            str(interaction.guild.id),
-            str(interaction.channel.id),
+            str(guild.id),
+            str(channel_id),
         )
 
         if new_status:
@@ -405,8 +465,16 @@ async def speaker_command(interaction: Interaction) -> None:
 
     """
     try:
+        if interaction.guild is None:
+            await interaction.response.send_message(
+                "このコマンドはサーバー内でのみ使用できます。",
+                ephemeral=True,
+            )
+            return
+        guild = interaction.guild
+
         # Get current settings
-        current_settings = _get_guild_speaker_settings(interaction.guild.id)
+        current_settings = await _get_guild_speaker_settings(guild.id)
         current_speaker = current_settings["speaker"]
         current_style = current_settings["style"]
 
@@ -420,7 +488,7 @@ async def speaker_command(interaction: Interaction) -> None:
             return
 
         # Create speaker selector
-        speaker_selector = SpeakerSelector(guild_id=interaction.guild.id, stage="speaker")
+        speaker_selector = SpeakerSelector(guild_id=guild.id, stage="speaker")
         view = View()
         view.add_item(speaker_selector)
 

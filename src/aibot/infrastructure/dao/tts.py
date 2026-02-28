@@ -16,31 +16,51 @@ class TTSSession(TypedDict):
     created_at: datetime.datetime
 
 
+class TTSSpeakerSettings(TypedDict):
+    guild_id: str
+    speaker: str
+    style: str
+    updated_at: datetime.datetime
+
+
 class TTSSessionDAO(DAOBase):
     """Data Access Object for managing TTS sessions."""
 
     TABLE_NAME: str = "tts_sessions"
+    SETTINGS_TABLE_NAME: str = "tts_settings"
 
     async def create_table(self) -> None:
         """Create table if it doesn't exist."""
         if not self.validate_table_name(self.TABLE_NAME):
             msg = "INVALID TABLENAME: Only alphanumeric characters and underscores are allowed."
             raise ValueError(msg)
+        if not self.validate_table_name(self.SETTINGS_TABLE_NAME):
+            msg = "INVALID TABLENAME: Only alphanumeric characters and underscores are allowed."
+            raise ValueError(msg)
 
         conn = await aiosqlite.connect(super().DB_NAME)
         try:
-            query = f"""
+            session_query = f"""
             CREATE TABLE IF NOT EXISTS {self.TABLE_NAME} (
-                guild_id          TEXT PRIMARY KEY,
-                text_channel_id   TEXT NOT NULL,
-                voice_channel_id  TEXT NOT NULL,
-                is_active         BOOLEAN NOT NULL DEFAULT FALSE,
+                guild_id           TEXT PRIMARY KEY,
+                text_channel_id    TEXT NOT NULL,
+                voice_channel_id   TEXT NOT NULL,
+                is_active          BOOLEAN NOT NULL DEFAULT FALSE,
                 is_reading_enabled BOOLEAN NOT NULL DEFAULT FALSE,
                 reading_channel_id TEXT,
-                created_at        DATETIME NOT NULL
+                created_at         DATETIME NOT NULL
             );
             """
-            await conn.execute(query)
+            settings_query = f"""
+            CREATE TABLE IF NOT EXISTS {self.SETTINGS_TABLE_NAME} (
+                guild_id      TEXT PRIMARY KEY,
+                speaker       TEXT NOT NULL,
+                style         TEXT NOT NULL,
+                updated_at    DATETIME NOT NULL
+            );
+            """
+            await conn.execute(session_query)
+            await conn.execute(settings_query)
             await conn.commit()
         finally:
             await conn.close()
@@ -196,5 +216,53 @@ class TTSSessionDAO(DAOBase):
             if row:
                 return (bool(row[0]), row[1])
             return (False, None)
+        finally:
+            await conn.close()
+
+    async def upsert_speaker_settings(
+        self,
+        guild_id: str,
+        speaker: str,
+        style: str,
+    ) -> None:
+        """Create or update speaker settings for a guild."""
+        conn = await aiosqlite.connect(super().DB_NAME)
+        now = datetime.datetime.now(super().TIMEZONE)
+        try:
+            query = """
+            INSERT INTO tts_settings (guild_id, speaker, style, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(guild_id) DO UPDATE SET
+                speaker = excluded.speaker,
+                style = excluded.style,
+                updated_at = excluded.updated_at;
+            """
+            await conn.execute(query, (guild_id, speaker, style, now))
+            await conn.commit()
+        finally:
+            await conn.close()
+
+    async def get_speaker_settings(
+        self,
+        guild_id: str,
+    ) -> TTSSpeakerSettings | None:
+        """Get speaker settings for a guild."""
+        conn = await aiosqlite.connect(super().DB_NAME)
+        try:
+            query = """
+            SELECT guild_id, speaker, style, updated_at
+            FROM tts_settings
+            WHERE guild_id = ?;
+            """
+            cursor = await conn.execute(query, (guild_id,))
+            row = await cursor.fetchone()
+            if row:
+                return TTSSpeakerSettings(
+                    guild_id=row[0],
+                    speaker=row[1],
+                    style=row[2],
+                    updated_at=row[3],
+                )
+            return None
         finally:
             await conn.close()

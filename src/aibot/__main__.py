@@ -10,13 +10,14 @@ load_dotenv()
 
 from src.aibot.discord.client import BotClient  # noqa: E402
 from src.aibot.discord.command import *  # noqa: E402, F403
-from src.aibot.discord.event import *  # noqa: E402, F403
+from src.aibot.discord.events import *  # noqa: E402, F403
 from src.aibot.infrastructure.dao.agent import AgentDAO  # noqa: E402
 from src.aibot.infrastructure.dao.connection import ConnectionDAO  # noqa: E402
 from src.aibot.infrastructure.dao.tts import TTSSessionDAO  # noqa: E402
 from src.aibot.infrastructure.dao.usage import UsageDAO  # noqa: E402
 from src.aibot.logger import logger  # noqa: E402
 from src.aibot.service.scheduler import TaskScheduler  # noqa: E402
+from src.aibot.service.tts import TTSService  # noqa: E402
 
 
 async def main() -> None:
@@ -29,6 +30,7 @@ async def main() -> None:
     DISCORD_BOT_TOKEN: str = os.environ["DISCORD_BOT_TOKEN"]  # noqa: N806
 
     client = BotClient.get_instance()
+    tts_service = TTSService.get_instance()
 
     # Load opus for voice functionality
     if not discord.opus.is_loaded():
@@ -40,12 +42,14 @@ async def main() -> None:
 
     # Start all background schedulers
     TaskScheduler.start_all()
+    await tts_service.startup()
 
     try:
         await client.start(DISCORD_BOT_TOKEN)
     except Exception:
         logger.exception("Failed to start bot")
     finally:
+        await tts_service.shutdown()
         TaskScheduler.stop_all()
         logger.info("Bot stopped")
 
