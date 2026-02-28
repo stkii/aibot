@@ -136,11 +136,23 @@ class UsageDAO(DAOBase):
         """
         conn = await aiosqlite.connect(super().DB_NAME)
         try:
-            target_user_id = 0 if user_id is None else user_id
-            query = """
-            SELECT daily_limit FROM user_limits WHERE user_id = ?;
-            """
-            cursor = await conn.execute(query, (target_user_id,))
+            if user_id is None:
+                query = """
+                SELECT daily_limit
+                FROM user_limits
+                WHERE user_id = 0
+                LIMIT 1;
+                """
+                cursor = await conn.execute(query)
+            else:
+                query = """
+                SELECT daily_limit
+                FROM user_limits
+                WHERE user_id IN (?, 0)
+                ORDER BY CASE WHEN user_id = ? THEN 0 ELSE 1 END
+                LIMIT 1;
+                """
+                cursor = await conn.execute(query, (user_id, user_id))
             row = await cursor.fetchone()
             return row[0] if row else 10  # Default limit is 10
         finally:
