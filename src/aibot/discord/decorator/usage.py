@@ -37,12 +37,12 @@ def has_daily_usage_left() -> Callable[[T], T]:
     return app_commands.check(predicate)
 
 
-def track_usage() -> Callable[[T], T]:
+def track_usage(flag_key: str = "count_usage") -> Callable[[T], T]:
     """Automatically track API usage after successful command execution.
 
     This decorator should be applied to Discord app commands that consume
-    API quota. It automatically increments the user's daily usage count
-    after the command executes successfully.
+    API quota. The decorated command must set `interaction.extras[flag_key]`
+    to True when it has completed successfully.
 
     Returns
     -------
@@ -66,13 +66,17 @@ def track_usage() -> Callable[[T], T]:
                 logger.error("No Interaction found in command arguments for usage tracking")
                 return await func(*args, **kwargs)
 
+            # Reset the success flag for each invocation.
+            interaction.extras[flag_key] = False
+
             # Execute the original command
             result = await func(*args, **kwargs)
 
-            # Track usage only on successful execution
-            usage_dao = UsageDAO()
-            await usage_dao.increment_daily_usage_count(interaction.user.id)
-            logger.debug("Usage tracked for user %s", interaction.user.id)
+            # Track usage only when the command explicitly marks success.
+            if interaction.extras.get(flag_key) is True:
+                usage_dao = UsageDAO()
+                await usage_dao.increment_daily_usage_count(interaction.user.id)
+                logger.debug("Usage tracked for user %s", interaction.user.id)
 
             return result
 

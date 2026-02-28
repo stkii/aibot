@@ -6,7 +6,7 @@ import uuid
 from discord import Interaction, app_commands
 
 from src.aibot.discord.client import BotClient
-from src.aibot.discord.decorator.usage import has_daily_usage_left
+from src.aibot.discord.decorator.usage import has_daily_usage_left, track_usage
 from src.aibot.infrastructure.api.agents import generate_agents_response
 from src.aibot.infrastructure.dao.agent import AgentDAO
 from src.aibot.logger import logger
@@ -30,6 +30,7 @@ def _build_session_id(interaction: Interaction) -> str:
     description="AIと対話します",
 )
 @has_daily_usage_left()
+@track_usage()
 @app_commands.rename(user_msg="message")
 async def ai_command(interaction: Interaction, user_msg: str) -> None:
     try:
@@ -65,6 +66,7 @@ async def ai_command(interaction: Interaction, user_msg: str) -> None:
             handoffs=(meta or {}).get("handoffs"),
             output_preview=text,
         )
+        interaction.extras["count_usage"] = True
     except Exception as e:
         logger.exception("Error in /ai command: %s", e)
         try:
@@ -87,8 +89,16 @@ async def ai_command(interaction: Interaction, user_msg: str) -> None:
         except Exception:
             # Swallow DAO errors to avoid masking original error handling
             logger.debug("Failed to record /ai error to AgentDAO")
-        if not interaction.response.is_done():
-            await interaction.response.send_message(
-                "`/ai` コマンドの実行中にエラーが発生しました。",
-                ephemeral=True,
-            )
+        try:
+            if interaction.response.is_done():
+                await interaction.followup.send(
+                    "`/ai` コマンドの実行中にエラーが発生しました。",
+                    ephemeral=True,
+                )
+            else:
+                await interaction.response.send_message(
+                    "`/ai` コマンドの実行中にエラーが発生しました。",
+                    ephemeral=True,
+                )
+        except Exception:
+            logger.debug("Failed to notify user about /ai error")
