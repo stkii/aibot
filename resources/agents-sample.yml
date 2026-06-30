@@ -1,0 +1,58 @@
+# Copy this file to resources/agents.yml and edit the placeholders.
+#
+# Notes:
+# - resources/agents.yml is intentionally git-ignored because it may contain
+#   private prompts or project-specific behavior.
+# - The agent key under "agents" becomes the runtime agent name.
+# - "general" is the base persona. It always produces the final user-facing
+#   response.
+# - All agents other than "general" are exposed to the base persona as
+#   specialist tools named "{agent_key}_agent".
+# - "tools" is optional. Leave it empty unless actual SDK Tool objects are
+#   wired in code; string tool names are not resolved by the current loader.
+
+agents:
+  general:
+    # Placeholder: choose the default model for normal conversation.
+    # Example: gpt-4o-mini
+    model: "<BASE_PERSONA_MODEL>"
+
+    # Placeholder: define the bot's base personality, speaking style, and
+    # response policy. Keep secrets out of this file when possible.
+    instruction: |
+      <BASE_PERSONA_INSTRUCTION>
+
+      Example:
+      You are a friendly Discord bot.
+      Answer naturally in the user's language.
+      Keep replies concise unless the user asks for detail.
+
+  code:
+    # Placeholder: choose a model suited for programming help.
+    # Example: gpt-4o-mini
+    model: "<CODING_AGENT_MODEL>"
+
+    # Placeholder: define when this specialist is useful and what kind of
+    # output it should return to the base persona.
+    instruction: |
+      <CODING_AGENT_INSTRUCTION>
+
+      Example:
+      You are a coding specialist.
+      Help with implementation, debugging, refactoring, and code review.
+      Return precise technical analysis and suggested code changes.
+
+  writing:
+    # Placeholder: choose a model suited for drafting and proofreading.
+    # Example: gpt-4o-mini
+    model: "<WRITING_AGENT_MODEL>"
+
+    # Placeholder: define the writing tasks this specialist should handle.
+    instruction: |
+      <WRITING_AGENT_INSTRUCTION>
+
+      Example:
+      You are a writing specialist.
+      Draft, proofread, and polish formal notices, announcements, requests,
+      apologies, and public-facing explanations.
+      Preserve the requested tone and return ready-to-use text.

@@ -1,0 +1,1 @@
+"""Discord-independent business logic."""
