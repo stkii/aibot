@@ -4,6 +4,7 @@ The day boundary is JST: a user's quota resets at midnight Japan time.
 """
 
 import os
+from collections.abc import Mapping
 from datetime import UTC, date, datetime, timedelta
 from typing import Any, cast
 from zoneinfo import ZoneInfo
@@ -33,6 +34,46 @@ def get_default_daily_limit() -> int:
 
 def _today_jst() -> date:
     return datetime.now(JST).date()
+
+
+def admin_user_ids() -> list[int]:
+    """Admin user ids from ADMIN_USER_IDS; admins bypass daily limits."""
+    return [int(i) for i in os.environ["ADMIN_USER_IDS"].split(",")]
+
+
+def normalize_token_usage(value: object) -> dict[str, int] | None:
+    """Coerce arbitrary usage metadata into int token counts (None when unusable)."""
+    if not isinstance(value, Mapping):
+        return None
+
+    usage = cast("Mapping[str, object]", value)
+    input_tokens = usage.get("input_tokens")
+    output_tokens = usage.get("output_tokens")
+    total_tokens = usage.get("total_tokens")
+    if not isinstance(input_tokens, int):
+        input_tokens = 0
+    if not isinstance(output_tokens, int):
+        output_tokens = 0
+    if not isinstance(total_tokens, int):
+        total_tokens = input_tokens + output_tokens
+
+    if total_tokens <= 0:
+        return None
+
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": total_tokens,
+    }
+
+
+async def has_tokens_left(session: AsyncSession, user_id: int) -> bool:
+    """Return True while the user still has daily quota (admins always pass)."""
+    if user_id in admin_user_ids():
+        return True
+    usage = await get_user_daily_token_usage(session, user_id)
+    limit = await get_daily_token_limit(session, user_id)
+    return usage["total_tokens"] < limit
 
 
 async def set_daily_token_limit(
