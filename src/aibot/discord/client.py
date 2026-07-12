@@ -3,7 +3,16 @@
 import asyncio
 
 from src.aibot.db.engine import get_session, init_db
-from src.aibot.discord import AllowedMentions, Client, Guild, Intents, Messageable, app_commands
+from src.aibot.discord import (
+    AllowedMentions,
+    Client,
+    Guild,
+    Intents,
+    Message,
+    Messageable,
+    app_commands,
+)
+from src.aibot.discord.events.message import handle_talk_message
 from src.aibot.discord.guild_guard import (
     GuildGuardCommandTree,
     allowed_guild_ids,
@@ -15,6 +24,9 @@ from src.aibot.services.scheduler import Scheduler
 
 intents = Intents.default()
 intents.members = True
+# Reading what users write inside /talk threads is a privileged intent; it must
+# also be enabled in the Developer Portal (Bot > Privileged Gateway Intents).
+intents.message_content = True
 
 
 class BotClient(Client):
@@ -62,6 +74,10 @@ class BotClient(Client):
             self._reset_task = asyncio.create_task(run_daily_reset_loop())
             self._restored = True
 
+    async def on_message(self, message: Message) -> None:
+        """Continue /talk conversations inside registered threads."""
+        await handle_talk_message(message)
+
     async def on_guild_join(self, guild: Guild) -> None:
         """Leave immediately when added to a guild that is not allowlisted."""
         if not is_guild_allowed(guild.id):
@@ -98,7 +114,7 @@ class BotClient(Client):
                 return
             content = (
                 f"<@{reminder.target_id}> "
-                f"{reminder.author_name}さんからのリマインダー: {reminder.message}"
+                f"{reminder.author_name}さんからのリマインドだよ！：「{reminder.message}」"
             )
             channel_id = reminder.channel_id
 
