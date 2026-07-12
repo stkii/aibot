@@ -9,8 +9,11 @@ from discord import (
     Intents,
     Interaction,
     Member,
+    SelectOption,
     TextChannel,
+    TextStyle,
     app_commands,
+    ui,
 )
 from discord.abc import Messageable
 
@@ -24,6 +27,9 @@ __all__ = [
     "Interaction",
     "Member",
     "Messageable",
+    "SelectOption",
     "TextChannel",
+    "TextStyle",
     "app_commands",
+    "ui",
 ]
