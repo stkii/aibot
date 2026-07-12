@@ -7,16 +7,65 @@ through `Runner.run`.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from textwrap import dedent
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
-from agents import Agent, Runner
+from agents import Agent, Runner, SessionSettings, SQLiteSession
 
 from src.aibot.logger import logger
 
+if TYPE_CHECKING:
+    from agents.items import TResponseInputItem
+
 BASE_AGENT_NAME = "general"
+
+# Conversation memory lives in its own SQLite file, next to aibot.db.
+_SESSIONS_DB_PATH = "agent_sessions.db"
+_FALLBACK_HISTORY_MAX_ITEMS = 40
+
+
+def _history_max_items() -> int:
+    """Per-request history budget from TALK_HISTORY_MAX_ITEMS (falls back to 40)."""
+    raw = os.getenv("TALK_HISTORY_MAX_ITEMS")
+    if raw is None:
+        return _FALLBACK_HISTORY_MAX_ITEMS
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return _FALLBACK_HISTORY_MAX_ITEMS
+
+
+def _is_user_message(item: object) -> bool:
+    return isinstance(item, dict) and item.get("role") == "user"
+
+
+class BoundedSession(SQLiteSession):
+    """A SQLiteSession whose trimmed history always starts at a user message.
+
+    Limiting to the latest N items can cut a tool call away from its output,
+    and the model API rejects such orphans, so anything before the first user
+    message is dropped as well.
+    """
+
+    async def get_items(self, limit: int | None = None) -> list[TResponseInputItem]:
+        """Return the latest items, trimmed to start at a user message."""
+        items = await super().get_items(limit)
+        for index, item in enumerate(items):
+            if _is_user_message(item):
+                return items[index:]
+        return []
+
+
+def build_conversation_session(session_id: str) -> SQLiteSession:
+    """Create the bounded persistent memory for a continuing conversation."""
+    return BoundedSession(
+        session_id,
+        db_path=_SESSIONS_DB_PATH,
+        session_settings=SessionSettings(limit=_history_max_items()),
+    )
 
 
 def _load_agents_config() -> dict:
@@ -134,8 +183,12 @@ def _extract_tool_calls(result: object) -> list[dict[str, str]]:
     return tool_calls
 
 
-async def generate_agents_response(user_msg: str) -> dict:
+async def generate_agents_response(user_msg: str, *, session_id: str | None = None) -> dict:
     """Generate response using configured agents and return text + meta.
+
+    When `session_id` is given, the run reads and extends that conversation's
+    persistent memory (bounded to the latest N items); otherwise it is
+    a stateless single-turn run.
 
     Returns
     -------
@@ -179,7 +232,8 @@ async def generate_agents_response(user_msg: str) -> dict:
         tools=[*base_agent.tools, *specialist_tools],
     )
 
-    final_result = await Runner.run(base_agent_with_tools, input=user_msg)
+    memory = build_conversation_session(session_id) if session_id else None
+    final_result = await Runner.run(base_agent_with_tools, input=user_msg, session=memory)
     text = _extract_text(final_result)
     tool_calls = _extract_tool_calls(final_result)
 

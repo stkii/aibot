@@ -3,6 +3,8 @@ resources/agents.yml
 
 # Database
 *.db
+*.db-shm
+*.db-wal
 
 # Environment
 .env
