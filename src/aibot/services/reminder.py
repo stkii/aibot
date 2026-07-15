@@ -98,6 +98,21 @@ async def get_pending_reminders(session: AsyncSession) -> list[Reminder]:
     return list(result.all())
 
 
+async def get_reminders_by_author(
+    session: AsyncSession,
+    *,
+    guild_id: int,
+    author_id: int,
+) -> list[Reminder]:
+    """Return a user's pending reminders in a guild, ordered by fire time."""
+    result = await session.scalars(
+        select(Reminder)
+        .where(Reminder.guild_id == guild_id, Reminder.author_id == author_id)
+        .order_by(Reminder.remind_at),
+    )
+    return list(result.all())
+
+
 async def delete_reminder(session: AsyncSession, reminder_id: int) -> None:
     """Delete a reminder by id if it exists."""
     reminder = await session.get(Reminder, reminder_id)
