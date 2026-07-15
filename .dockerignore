@@ -1,0 +1,27 @@
+# VCS
+.git/
+.gitignore
+
+# Python envs & caches（ローカルの .venv は mac バイナリなので絶対に焼かない）
+.venv/
+**/__pycache__/
+*.py[cod]
+.ruff_cache/
+
+# 実行時データ（イメージに含めない / 永続化はボリューム）
+*.db
+logs/
+
+# 秘匿情報（実行時に env_file / マウントで注入）
+.env
+.env.*
+resources/agents.yml
+
+# 開発・ドキュメント類
+.claude/
+docs/
+*.md
+.python-version
+
+# OS-specific
+.DS_Store
