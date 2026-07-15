@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/Python-3.12-blue.svg?logo=python&logoColor=white&style=flat&labelColor=24292e)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-**AIBot**は、あなただけのキャラクターを設定して会話を行ったり、キャラクターが文章やコードの修正などの作業をサポートしてくれるDiscord Botです。
+**AIBot** は、AIエージェントと会話したり、あなたの作業をお手伝いしてくれるBotです。
 
 ## Getting started
 
@@ -31,7 +31,6 @@
     - bot
 
     **BOT PERMISSIONS**
-    - View Channels
     - Send Messages
     - Create Public Threads
     - Send Messages in Threads
@@ -68,7 +67,7 @@ pip install -r requirements.lock
 
 #### 3. Agentsの設定
 
-[resources/](https://github.com/stkii/aibot/tree/main/resources) に移動して、Agentsを定義してください。詳細は、当該ディレクトリの `README.md` を参照してください。
+[`resources/`](https://github.com/stkii/aibot/tree/main/resources) に移動して、Agentsを定義してください。詳細は、当該ディレクトリの `README.md` を参照してください。
 
 #### 4. BOTの起動
 
@@ -83,7 +82,7 @@ python -m src.aibot --log <log_level>
 
 ## Docker
 
-[resources/](https://github.com/stkii/aibot/tree/main/resources) に移動して、システム指示を定義してください。必要に応じて、使用するLLMモデルをカスタマイズすることもできます。詳細は、当該ディレクトリの `README.md` を参照してください。
+[`resources/`](https://github.com/stkii/aibot/tree/main/resources) に移動して、システム指示を定義してください。必要に応じて、使用するLLMモデルをカスタマイズすることもできます。詳細は、当該ディレクトリの `README.md` を参照してください。
 
 ```bash
 # サービスの起動（初回はイメージのビルドとダウンロードが実行されます）
