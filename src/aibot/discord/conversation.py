@@ -14,7 +14,7 @@ from src.aibot.discord.messaging import send_chunked
 from src.aibot.logger import logger
 from src.aibot.services import agent_runs as agent_runs_service
 from src.aibot.services import usage as usage_service
-from src.aibot.services.agents import generate_agents_response
+from src.aibot.services.agents import clear_conversation_session, generate_agents_response
 
 _ERROR_MESSAGE = "ごめん、応答の生成中にエラーが出ちゃった。もう一回話しかけてみて。"
 
@@ -35,6 +35,12 @@ def _lock_for(thread_id: int) -> asyncio.Lock:
 def talk_session_id(thread_id: int) -> str:
     """The conversation-memory key for a talk thread."""
     return f"talk:{thread_id}"
+
+
+async def reset_talk_memory(thread_id: int) -> None:
+    """Erase a talk thread's conversation memory once any in-flight turn finishes."""
+    async with _lock_for(thread_id):
+        await clear_conversation_session(talk_session_id(thread_id))
 
 
 async def run_talk_turn(

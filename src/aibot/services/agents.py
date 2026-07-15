@@ -68,6 +68,15 @@ def build_conversation_session(session_id: str) -> SQLiteSession:
     )
 
 
+async def clear_conversation_session(session_id: str) -> None:
+    """Erase a conversation's persistent memory."""
+    session = SQLiteSession(session_id, db_path=_SESSIONS_DB_PATH)
+    try:
+        await session.clear_session()
+    finally:
+        session.close()
+
+
 def _load_agents_config() -> dict:
     """Load resources/agents.yml configuration."""
     curr = Path(__file__).resolve()
