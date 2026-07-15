@@ -58,5 +58,5 @@ def build_session_id(guild_id: int | None, channel: object) -> str:
         return f"guild:{gid}:channel:0:thread:0"
     parent = getattr(channel, "parent", None)
     channel_id = getattr(parent, "id", None) or getattr(channel, "id", 0)
-    thread_id = channel.id if parent is not None else 0  # type: ignore[attr-defined]
+    thread_id = getattr(channel, "id", 0) if parent is not None else 0
     return f"guild:{gid}:channel:{channel_id}:thread:{thread_id or 0}"

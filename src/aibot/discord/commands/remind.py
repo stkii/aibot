@@ -59,9 +59,7 @@ class RemindModal(ui.Modal, title="リマインドの設定"):
         )
         self.minute_select = ui.Select(
             placeholder="分を選んでね",
-            options=[
-                SelectOption(label=f"{m:02d}分", value=f"{m:02d}") for m in range(0, 60, 10)
-            ],
+            options=[SelectOption(label=f"{m:02d}分", value=f"{m:02d}") for m in range(0, 60, 10)],
         )
         self.message_input = ui.TextInput(
             style=TextStyle.long,
