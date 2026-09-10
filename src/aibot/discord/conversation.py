@@ -1,119 +1,109 @@
-"""One /talk conversation turn: generate, deliver, and record.
-
-Used by both the /talk command (first turn) and the on_message handler
-(every later turn), so the two paths behave identically.
-"""
-
 import asyncio
-import time
-import uuid
+from weakref import WeakValueDictionary
 
-from src.aibot.db.engine import get_session
-from src.aibot.discord import Messageable
-from src.aibot.discord.messaging import send_chunked
+from discord import AllowedMentions, Member, Message, Thread
+
+from src.aibot.infrastructure.agents.agents import (
+    clear_conversation_session,
+    generate_agents_response,
+)
+from src.aibot.infrastructure.db.dao.talk_thread_dao import TalkThreadDao
+from src.aibot.infrastructure.db.dao.token_limit_dao import DailyTokenUsageDao, UserTokenLimitDao
 from src.aibot.logger import logger
-from src.aibot.services import agent_runs as agent_runs_service
-from src.aibot.services import usage as usage_service
-from src.aibot.services.agents import clear_conversation_session, generate_agents_response
 
-_ERROR_MESSAGE = "ごめん、応答の生成中にエラーが出ちゃった。もう一回話しかけてみて。"
-
-# Serializes turns per thread so rapid-fire messages cannot interleave the
-# conversation memory. Keyed by thread id; the event loop is single-threaded,
-# so plain dict access is safe.
-_thread_locks: dict[int, asyncio.Lock] = {}
+_thread_locks: WeakValueDictionary[int, asyncio.Lock] = WeakValueDictionary()
+_user_locks: WeakValueDictionary[int, asyncio.Lock] = WeakValueDictionary()
 
 
-def _lock_for(thread_id: int) -> asyncio.Lock:
-    lock = _thread_locks.get(thread_id)
+def _lock_for(locks: WeakValueDictionary[int, asyncio.Lock], key: int) -> asyncio.Lock:
+    lock = locks.get(key)
     if lock is None:
         lock = asyncio.Lock()
-        _thread_locks[thread_id] = lock
+        locks[key] = lock
     return lock
 
 
-def talk_session_id(thread_id: int) -> str:
-    """The conversation-memory key for a talk thread."""
-    return f"talk:{thread_id}"
+async def run_talk_turn(message: Message) -> None:
+    """Check the token limit, generate a reply, record usage, and send it.
+
+    Parameters
+    ----------
+    message : Message
+        Message from the owner of a registered talk thread. Other messages are ignored.
+
+    Notes
+    -----
+    Turns are serialized per thread and user. Administrators bypass the limit
+    check, but their usage is still recorded.
+
+    """
+    channel = message.channel
+    user = message.author
+    if not isinstance(channel, Thread) or not isinstance(user, Member):
+        return
+    if user.bot or not message.content.strip():
+        return
+
+    async with _lock_for(_thread_locks, channel.id):
+        owner_id = await TalkThreadDao().get_owner_id(channel.id)
+        if owner_id != user.id:
+            return
+        await _reply(channel, user, message.content)
+
+
+async def start_conversation(channel: Thread, user: Member, content: str) -> None:
+    """Register the thread and finish the opening turn before accepting follow-ups."""
+    async with _lock_for(_thread_locks, channel.id):
+        await TalkThreadDao().register_thread(
+            thread_id=channel.id,
+            guild_id=channel.guild.id,
+            channel_id=channel.parent_id,
+            owner_id=user.id,
+        )
+        await _reply(channel, user, content)
 
 
 async def reset_talk_memory(thread_id: int) -> None:
-    """Erase a talk thread's conversation memory once any in-flight turn finishes."""
-    async with _lock_for(thread_id):
-        await clear_conversation_session(talk_session_id(thread_id))
+    """Clear history after any earlier turns in the thread have finished."""
+    async with _lock_for(_thread_locks, thread_id):
+        await clear_conversation_session(f"talk:{thread_id}")
 
 
-async def run_talk_turn(
-    *,
-    destination: Messageable,
-    thread_id: int,
-    record_session_id: str,
-    user_id: int,
-    content: str,
-) -> None:
-    """Run one conversation turn in a talk thread and record its outcome."""
-    async with _lock_for(thread_id):
-        run_id = str(uuid.uuid4())
-        t0 = time.perf_counter()
+async def has_tokens_left(user: Member) -> bool:
+    if user.guild_permissions.administrator:
+        return True
+    usage = await DailyTokenUsageDao().get_daily_token_usage(user.id)
+    limit = await UserTokenLimitDao().get_daily_token_limit(user.id)
+    return usage["total_tokens"] < limit
+
+
+async def _reply(channel: Thread, user: Member, content: str) -> None:
+    async with _lock_for(_user_locks, user.id):
         try:
-            async with destination.typing():
-                res = await generate_agents_response(
+            usage_dao = DailyTokenUsageDao()
+            if not await has_tokens_left(user):
+                await channel.send("今日のトークン上限に達したよ。また明日話そう。")
+                return
+
+            async with channel.typing():
+                result = await generate_agents_response(
                     content,
-                    session_id=talk_session_id(thread_id),
+                    session_id=f"talk:{channel.id}",
                 )
-            text = res.get("text", "") or "応答が空でした。"
-            meta = res.get("meta", {})
-            if not isinstance(meta, dict):
-                meta = {}
-
-            await send_chunked(destination, text)
-
-            latency_ms = int((time.perf_counter() - t0) * 1000)
-            usage_val = meta.get("usage")
-            if not isinstance(usage_val, dict):
-                usage_val = None
-
-            async with get_session() as session:
-                await agent_runs_service.record_success(
-                    session,
-                    run_id=run_id,
-                    session_id=record_session_id,
-                    intent="talk",
-                    agent_key=meta.get("agent_key") or "unknown",
-                    model=meta.get("model"),
-                    usage=usage_val,
-                    latency_ms=latency_ms,
-                    tool_calls=meta.get("tool_calls"),
-                    handoffs=meta.get("handoffs"),
-                    output_preview=text,
-                )
-                token_usage = usage_service.normalize_token_usage(usage_val)
-                if token_usage is not None:
-                    await usage_service.add_daily_token_usage(
-                        session,
-                        user_id,
-                        input_tokens=token_usage["input_tokens"],
-                        output_tokens=token_usage["output_tokens"],
-                        total_tokens=token_usage["total_tokens"],
+                usage = result["meta"].get("usage")
+                if usage is not None:
+                    await usage_dao.insert_daily_token_usage(
+                        user.id,
+                        input_tokens=usage["input_tokens"],
+                        output_tokens=usage["output_tokens"],
+                        total_tokens=usage["total_tokens"],
                     )
-        except Exception as e:
-            logger.exception("Error in talk turn (thread %s)", thread_id)
-            latency_ms = int((time.perf_counter() - t0) * 1000)
-            try:
-                async with get_session() as session:
-                    await agent_runs_service.record_error(
-                        session,
-                        run_id=run_id,
-                        session_id=record_session_id,
-                        intent="talk",
-                        agent_key=None,
-                        model=None,
-                        latency_ms=latency_ms,
-                        error=f"{type(e).__name__}: {e}",
+                text = result["text"] or "応答が空だったよ。もう一度話しかけてみて。"
+                for start in range(0, len(text), 2000):
+                    await channel.send(
+                        text[start : start + 2000],
+                        allowed_mentions=AllowedMentions.none(),
                     )
-            except Exception:
-                logger.debug("Failed to record talk error to agent_runs")
-            try:
-                await destination.send(_ERROR_MESSAGE)
-            except Exception:
-                logger.debug("Failed to notify talk thread %s about the error", thread_id)
+        except Exception:
+            logger.exception("Conversation failed in thread %s", channel.id)
+            await channel.send("返答の処理中にエラーが起きたよ。少し待ってから試してね。")

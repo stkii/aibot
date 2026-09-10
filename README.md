@@ -86,21 +86,22 @@ python -m src.aibot --log <log_level>
 
 ```bash
 # サービスの起動（初回はイメージのビルドとダウンロードが実行されます）
-docker-compose up -d
+docker compose up -d --build
 
 # ログの確認
-docker-compose logs -f
+docker compose logs -f
 
 # サービスの停止
-docker-compose down
+docker compose down
 ```
+DB（`aibot.db`・`agent_sessions.db`）とログは、コンテナ内の `/app/data` にまとめ、名前付きボリューム `aibot-data` に保存します。SQLiteの補助ファイルも同じ場所に残ります。通常の `docker compose down` では保持されますが、`down -v` はボリュームも削除します。`resources/agents.yml` は起動前に用意してください。
 
 ### 個別サービスの操作
 
 ```bash
 # AIBotのみ再起動
-docker-compose restart aibot
+docker compose restart aibot
 
 # AIBotのログのみ確認
-docker-compose logs -f aibot
+docker compose logs -f aibot
 ```

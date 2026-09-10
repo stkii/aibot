@@ -1,97 +1,61 @@
-"""/limit and /set-limit slash commands: daily token usage and limits."""
+from discord import Colour, Embed, Interaction, Member, app_commands
 
-import os
-
-from src.aibot.db.engine import get_session
-from src.aibot.discord import Colour, Embed, Interaction
 from src.aibot.discord.client import BotClient
-from src.aibot.discord.decorators.access import is_admin_user
+from src.aibot.infrastructure.db.dao.token_limit_dao import DailyTokenUsageDao, UserTokenLimitDao
 from src.aibot.logger import logger
-from src.aibot.services import usage as usage_service
 
 client = BotClient.get_instance()
 
 
-@client.tree.command(
-    name="set-limit",
-    description="1日あたりのトークン上限を設定します",
-)
-@is_admin_user()
-async def set_limit_command(interaction: Interaction, limit: int) -> None:
-    """Set the default daily token limit for each user (admin only)."""
+@client.tree.command(name="set-limit", description="1日あたりのトークン上限を設定します")
+@app_commands.guild_only()
+@app_commands.checks.has_permissions(administrator=True)
+async def set_limit_command(
+    interaction: Interaction,
+    limit: app_commands.Range[int, 1],
+    user: Member | None = None,
+) -> None:
+    await interaction.response.defer(ephemeral=True)
     try:
-        if limit < 1:
-            await interaction.response.send_message(
-                "**limit**は1以上の整数を指定してください",
-                ephemeral=True,
-            )
-            return
-
-        async with get_session() as session:
-            await usage_service.set_daily_token_limit(session, limit)
-
-        await interaction.response.send_message(
-            f"トークン上限を{limit}/dayに設定しました",
-            ephemeral=True,
+        await UserTokenLimitDao().set_daily_token_limit(
+            daily_token_limit=limit,
+            user_id=user.id if user is not None else None,
         )
-        logger.info(
-            "%s set default daily token limit to %d",
-            interaction.user,
-            limit,
-        )
+        target = user.display_name if user is not None else "全体の既定値"
+        await interaction.followup.send(f"{target}の1日のトークン上限を{limit}に設定したよ。")
     except Exception:
+        logger.exception("Failed to set token limit")
+        await interaction.followup.send("トークン上限の設定に失敗したよ。")
+
+
+@set_limit_command.error
+async def set_limit_error(interaction: Interaction, error: app_commands.AppCommandError) -> None:
+    if isinstance(error, app_commands.MissingPermissions):
         await interaction.response.send_message(
-            "[ERROR] `/set-limit` コマンドでエラーが発生しました",
-            ephemeral=True,
+            "この操作には管理者権限が必要だよ。", ephemeral=True
         )
-        logger.exception("An error occurred in the set-limit command")
+        return
+    logger.error("Set-limit command rejected: %s", error)
+    await interaction.response.send_message("コマンドを実行できなかったよ。", ephemeral=True)
 
 
-@client.tree.command(
-    name="limit",
-    description="現在の利用状況を確認します",
-)
+@client.tree.command(name="limit", description="現在のトークン使用量を確認します")
+@app_commands.guild_only()
 async def limit_command(interaction: Interaction) -> None:
-    """Check the user's limit and current usage."""
+    await interaction.response.defer(ephemeral=True)
     try:
         user = interaction.user
-        admin_ids: list[int] = [int(id_str) for id_str in os.environ["ADMIN_USER_IDS"].split(",")]
-
-        async with get_session() as session:
-            user_limit = await usage_service.get_daily_token_limit(session, user.id)
-            current_usage = await usage_service.get_user_daily_token_usage(session, user.id)
-        total_tokens = current_usage["total_tokens"]
-
-        embed = Embed(
-            description=f"<@{user.id}> の利用状況",
-            color=Colour.blue(),
-        )
-
-        # Admin user is unlimited
-        if user.id in admin_ids:
-            embed.add_field(name="使用トークン", value=f"{total_tokens} / ∞", inline=True)
-            embed.add_field(name="残りトークン", value="∞", inline=True)
-        else:
-            embed.add_field(
-                name="使用トークン",
-                value=f"{total_tokens} / {user_limit}",
-                inline=True,
-            )
-            embed.add_field(
-                name="残りトークン",
-                value=max(0, user_limit - total_tokens),
-                inline=True,
-            )
+        is_admin = isinstance(user, Member) and user.guild_permissions.administrator
+        user_limit = await UserTokenLimitDao().get_daily_token_limit(user.id)
+        usage = await DailyTokenUsageDao().get_daily_token_usage(user.id)
+        total = usage["total_tokens"]
+        embed = Embed(description=f"<@{user.id}> のトークン使用量", color=Colour.green())
+        embed.add_field(name="使用トークン", value=f"{total} / {'∞' if is_admin else user_limit}")
         embed.add_field(
-            name="リクエスト数",
-            value=current_usage["request_count"],
-            inline=True,
+            name="残りトークン", value="∞" if is_admin else str(max(0, user_limit - total))
         )
-
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        embed.add_field(name="リクエスト数", value=str(usage["request_count"]))
+        await interaction.followup.send(embed=embed)
     except Exception:
-        await interaction.response.send_message(
-            "[ERROR] 使用状況の取得に失敗しました",
-            ephemeral=True,
-        )
-        logger.exception("An error occurred in the limit command")
+        logger.exception("Failed to get token usage")
+        await interaction.followup.send("使用状況の取得に失敗したよ。")

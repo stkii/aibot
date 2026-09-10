@@ -24,6 +24,8 @@ select = [ "ALL" ]
 
 # Ignore specific linting rules.
 ignore = [
+    "BLE001", # Allow catching blind exception
+    "COM812", # Conflicts with the formatter; the formatter manages trailing commas itself
     "D100",   # Allow missing docstring in public module
     "D101",   # Allow missing docstring in public class
     "D102",   # Allow missing docstring in public method
@@ -33,11 +35,10 @@ ignore = [
     "D203",   # Ignore: incompatible with D211 (no-blank-line-before-class)
     "D213",   # Ignore: incompatible with D212 (multi-line-summary-first-line)
     "D401",   # Allow first line of docstring not to be in imperative mood
-    "BLE001", # Allow catching blind exception
+    "INP001",
     "RUF001", # Allow full-width punctuation in strings (Japanese UI text)
     "RUF002", # Allow full-width punctuation in docstrings (Japanese)
     "RUF003", # Allow full-width punctuation in comments (Japanese)
-    "COM812", # Conflicts with the formatter; the formatter manages trailing commas itself.
 ]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.

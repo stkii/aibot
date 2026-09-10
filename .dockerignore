@@ -2,23 +2,30 @@
 .git/
 .gitignore
 
-# Python envs & caches（ローカルの .venv は mac バイナリなので絶対に焼かない）
+# Python envs & caches
 .venv/
 **/__pycache__/
 *.py[cod]
 .ruff_cache/
 
-# 実行時データ（イメージに含めない / 永続化はボリューム）
+# Runtime data
 *.db
+*.db-wal
+*.db-shm
+*.db-journal
+data/
 logs/
 
-# 秘匿情報（実行時に env_file / マウントで注入）
+# Secrets
 .env
 .env.*
 resources/agents.yml
 
-# 開発・ドキュメント類
+# Developing/ Documents
 .claude/
+.agents/
+.codex/
+legacy/
 docs/
 *.md
 .python-version

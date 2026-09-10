@@ -4,20 +4,18 @@ services:
     image: aibot:latest
     container_name: aibot
     restart: unless-stopped
-
-    # .env を実行時に注入（イメージには焼かない）
     env_file:
       - .env
-
     volumes:
-      # SQLite DB を永続化（コンテナを作り直しても残る）
-      # ※ 初回 up の前にホスト側へファイルを用意しておくこと: `touch aibot.db`
-      #   （無いと Docker が同名ディレクトリを作ってしまう）
-      - ./aibot.db:/app/aibot.db
+      # 両方のDB・補助ファイル・ログを永続化する。
+      - aibot-data:/app/data
+      # 設定ファイルがなければ、ディレクトリを作らず起動を失敗させる。
+      - type: bind
+        source: ./resources/agents.yml
+        target: /app/resources/agents.yml
+        read_only: true
+        bind:
+          create_host_path: false
 
-      # ログを永続化
-      - ./logs:/app/logs
-
-      # 本番の Agent 設定（gitignore 対象なので実行時にマウント、読み取り専用）
-      # ※ resources/agents.yml が存在している前提（README の手順3で作成）
-      - ./resources/agents.yml:/app/resources/agents.yml:ro
+volumes:
+  aibot-data:
